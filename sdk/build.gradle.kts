@@ -1,20 +1,17 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
 }
 
 android {
-    namespace = "com.example.sebasiao.yuno.challenge"
+    namespace = "com.yuno.payments.threeds"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.sebasiao.yuno.challenge"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
@@ -46,11 +43,6 @@ android {
 }
 
 dependencies {
-    implementation(project(":sdk"))
-
-    // Core
-    implementation(libs.androidx.core.ktx)
-
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
@@ -71,9 +63,6 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.viewmodel.savedstate)
 
-    // Navigation
-    implementation(libs.navigation.compose)
-
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
@@ -81,6 +70,4 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation(libs.compose.ui.test.junit4)
 }

@@ -309,3 +309,135 @@ When implementing a new feature, spawn a **team of parallel agents** (via the Ta
 - [ ] Are composables stateless with hoisted state?
 - [ ] Am I reusing shared components from `ui/component/` instead of duplicating?
 - [ ] Does every screen handle loading, empty, and error states?
+
+---
+
+## Multi-Module Architecture
+
+Two Gradle modules:
+
+| Module | Type | Package | Description |
+|--------|------|---------|-------------|
+| `:sdk` | Android Library | `com.yuno.payments.threeds` | 3DS authentication SDK. Never depends on `:app`. |
+| `:app` | Application | `com.example.sebasiao.yuno.challenge` | Demo merchant app. Depends on `:sdk`. |
+
+Each module has its own Clean Architecture internally (`domain/`, `data/`, `presentation/`).
+
+Dependencies flow: `:app` → `:sdk`. **NEVER** the reverse.
+
+---
+
+## SDK Public API Conventions
+
+- **Single entry point**: `YunoThreeDSAuthenticator` — the only public-facing class merchants interact with.
+- **Everything else is `internal`**: All domain models used only within the SDK are `internal`. Only models needed by the merchant are `public`.
+- **Builder pattern** for configuration: `YunoThreeDSConfig.Builder()`.
+- **No Activity references stored**: SDK never holds references to Activity. Uses `ActivityResultLauncher` for challenge UI.
+- **Plug & play**: SDK works with zero configuration. `YunoThreeDSAuthenticator.initialize(context)` is all that's needed.
+
+---
+
+## Component Naming
+
+| Module | Prefix | Examples |
+|--------|--------|---------|
+| `:sdk` | `ThreeDS` | `ThreeDSOtpField`, `ThreeDSChallengeScreen`, `ThreeDSTheme` |
+| `:app` | `Yuno` | `YunoCard`, `YunoButton`, `YunoTextField` |
+
+---
+
+## DI Approach
+
+**Manual constructor injection only.** No Hilt, Dagger, or Koin.
+
+| Container | Scope | Lifecycle |
+|-----------|-------|-----------|
+| `SdkContainer` | `object` (Kotlin singleton) | Process-scoped. Initialized in `YunoThreeDSAuthenticator.initialize()`. Survives rotation, config changes. |
+| `AppContainer` | Property of `Application` class | Process-scoped. Created in `MerchantApp.onCreate()`. Accessed via `(application as MerchantApp).container`. |
+
+- ViewModels created via `ViewModelProvider.Factory` pulling deps from containers.
+- Containers survive configuration changes because they're tied to `Application` lifecycle.
+- `SavedStateHandle` in ViewModels for surviving process death.
+
+---
+
+## Concurrency Rules (Addendum)
+
+In addition to the base concurrency rules above:
+
+- **Singleton initialization**: Use `@Volatile` flag + `@Synchronized` method to prevent double init.
+- **Mutable-state repositories**: `Mutex` is **mandatory** (not optional) for any repository with in-memory mutable state.
+- **SharedPreferences access**: Always behind `Mutex` + `withContext(Dispatchers.IO)`.
+- **Process death**: Use `SavedStateHandle` in ViewModels with important transient state (OTP entry, timestamps).
+- **Rapid taps**: ViewModels must include `isProcessing` flag in state to disable UI during async operations.
+
+---
+
+## Development Methodology: Test Driven Development (TDD)
+
+**ALL code** is developed with strict TDD: Red → Green → Refactor.
+
+### Cycle
+
+1. **Red**: Write the test FIRST. It must fail (compilation error or assertion failure).
+2. **Green**: Write the MINIMUM code to make the test pass. No over-engineering.
+3. **Refactor**: Clean up without changing behavior. Tests must still pass.
+
+### Rules
+
+- No production file is created without its corresponding test file already existing.
+- Tests define the contract: the test is the specification, the code is the implementation.
+- Order per feature: test file first → implementation file second.
+- Mock dependencies with **MockK**.
+- Coroutine tests with `runTest` + `TestDispatcher`.
+- ViewModel tests with **Turbine** for StateFlow emission validation.
+- Concurrency tests: multiple coroutines writing simultaneously → no crashes, correct counts.
+
+---
+
+## Git Flow
+
+- **One atomic commit per phase/feature.** Commit includes both tests and implementation.
+- Commit only AFTER all tests for the phase pass.
+- No partial commits within a phase. Fix issues before committing.
+- **Format**: Conventional Commits — `type(scope): description`.
+- **Push** to remote after each commit.
+
+---
+
+## Updated Package Structure
+
+```
+:sdk (com.yuno.payments.threeds)
+├── domain/
+│   ├── model/          # Transaction, RiskPolicy, RiskAssessment, etc.
+│   ├── repository/     # RiskRepository, DeviceFingerprintRepository, etc.
+│   └── usecase/        # EvaluateTransactionRiskUseCase, etc.
+├── data/
+│   ├── repository/     # DefaultRiskRepository, InMemoryVelocityRepo, etc.
+│   └── risk/           # RiskFactor interface, AmountRiskFactor, RiskScoreEngine
+├── presentation/
+│   ├── theme/          # ThreeDSTheme, ThreeDSColors
+│   ├── component/      # ThreeDSOtpField, ThreeDSTransactionSummary
+│   └── challenge/      # ChallengeViewModel, ChallengeScreen, ChallengeActivity
+├── api/                # YunoThreeDSAuthenticator, YunoThreeDSConfig
+└── di/                 # SdkContainer
+
+:app (com.example.sebasiao.yuno.challenge)
+├── domain/
+│   ├── model/          # SampleTransaction, TransactionScenario
+│   ├── repository/     # SampleTransactionRepository
+│   └── usecase/        # GetSampleTransactionsUseCase, ProcessTransactionUseCase
+├── data/
+│   └── repository/     # HardcodedSampleTransactionRepository
+├── presentation/
+│   ├── theme/          # AppTheme, AppColors
+│   ├── ui/
+│   │   ├── component/  # YunoButton, YunoCard, YunoTextField, etc.
+│   │   └── screen/     # TransactionListScreen, TransactionFormScreen, ResultScreen
+│   ├── viewmodel/      # TransactionListViewModel, TransactionFormViewModel, ResultViewModel
+│   ├── model/          # UiState and UiEvent sealed interfaces
+│   └── navigation/     # NavHost, routes
+├── di/                 # AppContainer
+└── MerchantApp.kt      # Application class
+```
