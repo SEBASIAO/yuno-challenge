@@ -150,6 +150,102 @@ class FeatureViewModel(
 
 ---
 
+## UI/UX: Material Design 3 & Minimalist Design
+
+### Design System
+
+- Use **Material Design 3** (Material You) components exclusively via `androidx.compose.material3`.
+- Do NOT mix `material` (M2) and `material3` (M3) imports. Use M3 only.
+- Define a single `AppTheme` using `MaterialTheme` with custom `ColorScheme`, `Typography`, and `Shapes`.
+
+### Color Palette: Minimalist
+
+- Keep the palette **tight**: one primary color, one secondary, neutral surfaces, and minimal accents.
+- Use `MaterialTheme.colorScheme` tokens everywhere. **NEVER** hardcode hex colors in composables.
+- Define all colors in the theme. If a new color is needed, add it to the theme, not inline.
+- Support dark mode from day one: define both `lightColorScheme` and `darkColorScheme`.
+- Prefer high contrast and accessible color combinations (WCAG AA minimum).
+
+```kotlin
+// Example palette structure
+private val LightColors = lightColorScheme(
+    primary = Color(0xFF...),
+    onPrimary = Color.White,
+    surface = Color(0xFFFAFAFA),
+    onSurface = Color(0xFF1C1C1C),
+    // Keep it minimal - fewer colors = cleaner UI
+)
+```
+
+### Usability & Simplicity
+
+- **Less is more**: Every element on screen must earn its place. Remove before adding.
+- Generous whitespace and padding. Don't cram elements together.
+- Consistent spacing: use a 4dp/8dp/16dp grid system.
+- Touch targets minimum **48dp** (Material guideline).
+- Clear visual hierarchy: one primary action per screen, secondary actions de-emphasized.
+- Loading states, empty states, and error states for every screen. Never leave the user guessing.
+- Use `Scaffold`, `TopAppBar`, `FloatingActionButton` from M3 for consistent page structure.
+
+### Compose Component Reuse
+
+- Build a **shared component library** under `presentation/ui/component/`.
+- Reusable components examples: buttons, cards, text fields, loading indicators, error views, top bars.
+- Components must be **stateless** (hoisted state) and accept parameters via function arguments.
+- Use `@Preview` annotations on all reusable components.
+- Follow this naming convention: `YunoButton`, `YunoCard`, `YunoTextField`, etc. (prefixed with `Yuno`).
+
+```kotlin
+// Correct: stateless, reusable, themed
+@Composable
+fun YunoCard(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) { /* content */ }
+}
+```
+
+### Screen Composable Convention
+
+- Each screen has one root composable: `FeatureScreen(viewModel: FeatureViewModel)`.
+- Inside, a **stateless** content composable: `FeatureContent(state: FeatureUiState, onEvent: (FeatureEvent) -> Unit)`.
+- This separation allows previewing `FeatureContent` without a ViewModel.
+
+```kotlin
+@Composable
+fun FeatureScreen(viewModel: FeatureViewModel = hiltViewModel()) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    FeatureContent(state = state, onEvent = viewModel::onEvent)
+}
+
+@Composable
+fun FeatureContent(
+    state: FeatureUiState,
+    onEvent: (FeatureEvent) -> Unit
+) { /* pure UI, no ViewModel dependency */ }
+```
+
+### Package Update
+
+```
+presentation/
+├── ui/
+│   ├── component/   # Shared reusable composables (YunoButton, YunoCard, etc.)
+│   ├── theme/       # AppTheme, Color, Typography, Shapes
+│   └── screen/      # Feature screens organized by feature
+```
+
+---
+
 ## Checklist Before Writing Code
 
 - [ ] Does this code belong in the correct layer?
@@ -159,3 +255,8 @@ class FeatureViewModel(
 - [ ] Am I using structured concurrency?
 - [ ] Is the code testable without Android framework?
 - [ ] Does the ViewModel only expose immutable StateFlow?
+- [ ] Am I using only M3 components (no M2 mixing)?
+- [ ] Are colors coming from `MaterialTheme.colorScheme` (no hardcoded hex)?
+- [ ] Are composables stateless with hoisted state?
+- [ ] Am I reusing shared components from `ui/component/` instead of duplicating?
+- [ ] Does every screen handle loading, empty, and error states?
