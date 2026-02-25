@@ -1,5 +1,7 @@
 package com.example.sebasiao.yuno.challenge.presentation.ui.screen
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,11 +19,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -30,20 +34,46 @@ import com.example.sebasiao.yuno.challenge.presentation.theme.AppTheme
 import com.example.sebasiao.yuno.challenge.presentation.ui.component.YunoButton
 import com.example.sebasiao.yuno.challenge.presentation.ui.component.YunoTopBar
 import com.example.sebasiao.yuno.challenge.presentation.viewmodel.TransactionFormViewModel
+import com.yuno.payments.threeds.api.YunoThreeDSAuthenticator
 import com.yuno.payments.threeds.domain.model.CustomerTrustLevel
 
 @Composable
 fun TransactionFormScreen(
     viewModel: TransactionFormViewModel,
     onBackClick: () -> Unit,
-    onSubmit: (TransactionFormViewModel.UiState) -> Unit
+    onNavigateToResult: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val challengeLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.onChallengeResult(result.resultCode, result.data)
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.effects.collect { effect ->
+            when (effect) {
+                is TransactionFormViewModel.Effect.NavigateToResult -> {
+                    onNavigateToResult(effect.transactionId)
+                }
+                is TransactionFormViewModel.Effect.LaunchChallenge -> {
+                    YunoThreeDSAuthenticator.launchChallenge(
+                        transaction = effect.sdkTransaction,
+                        decision = effect.decision,
+                        launcher = challengeLauncher,
+                        context = context
+                    )
+                }
+            }
+        }
+    }
+
     TransactionFormContent(
         state = state,
         onEvent = viewModel::onEvent,
-        onBackClick = onBackClick,
-        onSubmit = { onSubmit(state) }
+        onBackClick = onBackClick
     )
 }
 
@@ -52,8 +82,7 @@ fun TransactionFormScreen(
 fun TransactionFormContent(
     state: TransactionFormViewModel.UiState,
     onEvent: (TransactionFormViewModel.Event) -> Unit,
-    onBackClick: () -> Unit,
-    onSubmit: () -> Unit
+    onBackClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -112,7 +141,6 @@ fun TransactionFormContent(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Trust Level Dropdown
             var trustExpanded by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
                 expanded = trustExpanded,
@@ -158,14 +186,7 @@ fun TransactionFormContent(
 
             YunoButton(
                 text = if (state.isProcessing) "Processing..." else "Authenticate",
-                onClick = {
-                    onEvent(TransactionFormViewModel.Event.Submit)
-                    val amountValid = state.amount.isNotBlank() &&
-                        state.amount.toDoubleOrNull()?.let { it > 0 } == true
-                    if (amountValid) {
-                        onSubmit()
-                    }
-                },
+                onClick = { onEvent(TransactionFormViewModel.Event.Submit) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.isProcessing
             )
@@ -180,8 +201,7 @@ private fun TransactionFormContentPreview() {
         TransactionFormContent(
             state = TransactionFormViewModel.UiState(),
             onEvent = {},
-            onBackClick = {},
-            onSubmit = {}
+            onBackClick = {}
         )
     }
 }
@@ -196,8 +216,7 @@ private fun TransactionFormContentWithErrorPreview() {
                 amountError = "Enter a valid positive amount"
             ),
             onEvent = {},
-            onBackClick = {},
-            onSubmit = {}
+            onBackClick = {}
         )
     }
 }

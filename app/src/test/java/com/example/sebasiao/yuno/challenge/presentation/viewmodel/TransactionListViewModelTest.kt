@@ -1,8 +1,10 @@
 package com.example.sebasiao.yuno.challenge.presentation.viewmodel
 
 import app.cash.turbine.test
+import com.example.sebasiao.yuno.challenge.di.AuthenticationResultHolder
 import com.example.sebasiao.yuno.challenge.domain.model.SampleTransaction
 import com.example.sebasiao.yuno.challenge.domain.model.TransactionScenario
+import com.example.sebasiao.yuno.challenge.domain.usecase.GetSampleTransactionByIdUseCase
 import com.example.sebasiao.yuno.challenge.domain.usecase.GetSampleTransactionsUseCase
 import com.yuno.payments.threeds.domain.model.CustomerTrustLevel
 import io.mockk.every
@@ -25,6 +27,8 @@ class TransactionListViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var getSampleTransactions: GetSampleTransactionsUseCase
+    private lateinit var getSampleTransactionById: GetSampleTransactionByIdUseCase
+    private lateinit var resultHolder: AuthenticationResultHolder
 
     private val sampleTransactions = listOf(
         SampleTransaction(
@@ -53,6 +57,8 @@ class TransactionListViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         getSampleTransactions = mockk()
+        getSampleTransactionById = mockk()
+        resultHolder = AuthenticationResultHolder()
     }
 
     @After
@@ -60,11 +66,19 @@ class TransactionListViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private fun createViewModel(): TransactionListViewModel {
+        return TransactionListViewModel(
+            getSampleTransactions,
+            getSampleTransactionById,
+            resultHolder
+        )
+    }
+
     @Test
     fun loadTransactions_success_emitsTransactionList() = runTest {
         every { getSampleTransactions() } returns sampleTransactions
 
-        val viewModel = TransactionListViewModel(getSampleTransactions)
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             val state = awaitItem()
@@ -79,7 +93,7 @@ class TransactionListViewModelTest {
     fun initialState_defaultPolicyIsPolicyA() = runTest {
         every { getSampleTransactions() } returns sampleTransactions
 
-        val viewModel = TransactionListViewModel(getSampleTransactions)
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             val state = awaitItem()
@@ -91,7 +105,7 @@ class TransactionListViewModelTest {
     fun onPolicyToggle_switchesToPolicyB() = runTest {
         every { getSampleTransactions() } returns sampleTransactions
 
-        val viewModel = TransactionListViewModel(getSampleTransactions)
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             awaitItem() // initial loaded state
@@ -111,7 +125,7 @@ class TransactionListViewModelTest {
     fun onPolicyToggle_switchesBackToPolicyA() = runTest {
         every { getSampleTransactions() } returns sampleTransactions
 
-        val viewModel = TransactionListViewModel(getSampleTransactions)
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             awaitItem() // initial loaded state
@@ -137,7 +151,7 @@ class TransactionListViewModelTest {
     fun loadTransactions_emptyList_emitsEmptyState() = runTest {
         every { getSampleTransactions() } returns emptyList()
 
-        val viewModel = TransactionListViewModel(getSampleTransactions)
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             val state = awaitItem()

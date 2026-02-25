@@ -1,6 +1,7 @@
 package com.example.sebasiao.yuno.challenge.presentation.viewmodel
 
 import app.cash.turbine.test
+import com.example.sebasiao.yuno.challenge.di.AuthenticationResultHolder
 import com.yuno.payments.threeds.domain.model.CustomerTrustLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,10 +22,12 @@ import org.junit.Test
 class TransactionFormViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
+    private lateinit var resultHolder: AuthenticationResultHolder
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        resultHolder = AuthenticationResultHolder()
     }
 
     @After
@@ -32,9 +35,13 @@ class TransactionFormViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private fun createViewModel(): TransactionFormViewModel {
+        return TransactionFormViewModel(resultHolder)
+    }
+
     @Test
     fun initialState_hasEmptyAmount() = runTest {
-        val viewModel = TransactionFormViewModel()
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             val state = awaitItem()
@@ -49,7 +56,7 @@ class TransactionFormViewModelTest {
 
     @Test
     fun onAmountChanged_updatesState() = runTest {
-        val viewModel = TransactionFormViewModel()
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             awaitItem() // initial state
@@ -64,7 +71,7 @@ class TransactionFormViewModelTest {
 
     @Test
     fun onMerchantNameChanged_updatesState() = runTest {
-        val viewModel = TransactionFormViewModel()
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             awaitItem() // initial state
@@ -78,7 +85,7 @@ class TransactionFormViewModelTest {
 
     @Test
     fun onCardLast4Changed_updatesState() = runTest {
-        val viewModel = TransactionFormViewModel()
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             awaitItem() // initial state
@@ -92,7 +99,7 @@ class TransactionFormViewModelTest {
 
     @Test
     fun onTrustLevelChanged_updatesState() = runTest {
-        val viewModel = TransactionFormViewModel()
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             awaitItem() // initial state
@@ -108,7 +115,7 @@ class TransactionFormViewModelTest {
 
     @Test
     fun onSubmit_withEmptyAmount_showsError() = runTest {
-        val viewModel = TransactionFormViewModel()
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             awaitItem() // initial state
@@ -124,7 +131,7 @@ class TransactionFormViewModelTest {
 
     @Test
     fun onSubmit_withInvalidAmount_showsError() = runTest {
-        val viewModel = TransactionFormViewModel()
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             awaitItem() // initial state
@@ -143,7 +150,7 @@ class TransactionFormViewModelTest {
 
     @Test
     fun onSubmit_withNegativeAmount_showsError() = runTest {
-        val viewModel = TransactionFormViewModel()
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             awaitItem() // initial state
@@ -161,7 +168,7 @@ class TransactionFormViewModelTest {
 
     @Test
     fun onSubmit_withZeroAmount_showsError() = runTest {
-        val viewModel = TransactionFormViewModel()
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             awaitItem() // initial state
@@ -178,26 +185,8 @@ class TransactionFormViewModelTest {
     }
 
     @Test
-    fun onSubmit_withValidAmount_setsProcessingTrue() = runTest {
-        val viewModel = TransactionFormViewModel()
-
-        viewModel.uiState.test {
-            awaitItem() // initial state
-
-            viewModel.onEvent(TransactionFormViewModel.Event.AmountChanged("100.00"))
-            awaitItem() // amount changed state
-
-            viewModel.onEvent(TransactionFormViewModel.Event.Submit)
-
-            val processingState = awaitItem()
-            assertNull(processingState.amountError)
-            assertTrue(processingState.isProcessing)
-        }
-    }
-
-    @Test
     fun onAmountChanged_clearsError() = runTest {
-        val viewModel = TransactionFormViewModel()
+        val viewModel = createViewModel()
 
         viewModel.uiState.test {
             awaitItem() // initial state

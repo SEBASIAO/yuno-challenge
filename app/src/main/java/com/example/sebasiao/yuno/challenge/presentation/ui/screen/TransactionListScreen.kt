@@ -1,5 +1,7 @@
 package com.example.sebasiao.yuno.challenge.presentation.ui.screen
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,8 +17,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -29,19 +33,45 @@ import com.example.sebasiao.yuno.challenge.presentation.ui.component.YunoPolicyT
 import com.example.sebasiao.yuno.challenge.presentation.ui.component.YunoTopBar
 import com.example.sebasiao.yuno.challenge.presentation.ui.component.YunoTransactionCard
 import com.example.sebasiao.yuno.challenge.presentation.viewmodel.TransactionListViewModel
+import com.yuno.payments.threeds.api.YunoThreeDSAuthenticator
 import com.yuno.payments.threeds.domain.model.CustomerTrustLevel
 
 @Composable
 fun TransactionListScreen(
     viewModel: TransactionListViewModel,
-    onTransactionClick: (String) -> Unit,
+    onNavigateToResult: (String) -> Unit,
     onCustomTransactionClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val challengeLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.onChallengeResult(result.resultCode, result.data)
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.effects.collect { effect ->
+            when (effect) {
+                is TransactionListViewModel.Effect.NavigateToResult -> {
+                    onNavigateToResult(effect.transactionId)
+                }
+                is TransactionListViewModel.Effect.LaunchChallenge -> {
+                    YunoThreeDSAuthenticator.launchChallenge(
+                        transaction = effect.sdkTransaction,
+                        decision = effect.decision,
+                        launcher = challengeLauncher,
+                        context = context
+                    )
+                }
+            }
+        }
+    }
+
     TransactionListContent(
         state = state,
         onEvent = viewModel::onEvent,
-        onTransactionClick = onTransactionClick,
         onCustomTransactionClick = onCustomTransactionClick
     )
 }
@@ -51,7 +81,6 @@ fun TransactionListScreen(
 fun TransactionListContent(
     state: TransactionListViewModel.UiState,
     onEvent: (TransactionListViewModel.Event) -> Unit,
-    onTransactionClick: (String) -> Unit,
     onCustomTransactionClick: () -> Unit
 ) {
     Scaffold(
@@ -107,7 +136,6 @@ fun TransactionListContent(
                                             transaction.id
                                         )
                                     )
-                                    onTransactionClick(transaction.id)
                                 }
                             )
                         }
@@ -125,7 +153,6 @@ private fun TransactionListContentLoadingPreview() {
         TransactionListContent(
             state = TransactionListViewModel.UiState(isLoading = true),
             onEvent = {},
-            onTransactionClick = {},
             onCustomTransactionClick = {}
         )
     }
@@ -141,7 +168,6 @@ private fun TransactionListContentEmptyPreview() {
                 transactions = emptyList()
             ),
             onEvent = {},
-            onTransactionClick = {},
             onCustomTransactionClick = {}
         )
     }
@@ -178,7 +204,6 @@ private fun TransactionListContentPreview() {
                 )
             ),
             onEvent = {},
-            onTransactionClick = {},
             onCustomTransactionClick = {}
         )
     }

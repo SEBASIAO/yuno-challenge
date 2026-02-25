@@ -1,6 +1,7 @@
 package com.example.sebasiao.yuno.challenge.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -34,12 +35,18 @@ fun AppNavHost(
     ) {
         composable(Screen.TransactionList.route) {
             val viewModel: TransactionListViewModel = viewModel {
-                TransactionListViewModel(appContainer.getSampleTransactions)
+                TransactionListViewModel(
+                    appContainer.getSampleTransactions,
+                    appContainer.getSampleTransactionById,
+                    appContainer.authResultHolder
+                )
             }
             TransactionListScreen(
                 viewModel = viewModel,
-                onTransactionClick = { transactionId ->
-                    navController.navigate(Screen.Result.createRoute(transactionId))
+                onNavigateToResult = { transactionId ->
+                    navController.navigate(Screen.Result.createRoute(transactionId)) {
+                        launchSingleTop = true
+                    }
                 },
                 onCustomTransactionClick = {
                     navController.navigate(Screen.TransactionForm.route)
@@ -49,13 +56,13 @@ fun AppNavHost(
 
         composable(Screen.TransactionForm.route) {
             val viewModel: TransactionFormViewModel = viewModel {
-                TransactionFormViewModel()
+                TransactionFormViewModel(appContainer.authResultHolder)
             }
             TransactionFormScreen(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
-                onSubmit = { _ ->
-                    navController.navigate(Screen.Result.createRoute("custom")) {
+                onNavigateToResult = { transactionId ->
+                    navController.navigate(Screen.Result.createRoute(transactionId)) {
                         launchSingleTop = true
                     }
                 }
@@ -68,11 +75,18 @@ fun AppNavHost(
                 navArgument("transactionId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            @Suppress("UNUSED_VARIABLE")
             val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
             val viewModel: ResultViewModel = viewModel {
                 ResultViewModel(appContainer.getSampleTransactionById)
             }
+
+            LaunchedEffect(transactionId) {
+                val held = appContainer.authResultHolder.get()
+                if (held != null) {
+                    viewModel.loadResult(transactionId, held.second)
+                }
+            }
+
             ResultScreen(
                 viewModel = viewModel,
                 onBackClick = {
