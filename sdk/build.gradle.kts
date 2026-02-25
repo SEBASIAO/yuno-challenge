@@ -43,6 +43,9 @@ android {
 }
 
 dependencies {
+    // AppCompat (needed for Theme.AppCompat.NoActionBar in manifest)
+    implementation(libs.androidx.appcompat)
+
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
