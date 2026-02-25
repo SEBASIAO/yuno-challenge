@@ -246,6 +246,55 @@ presentation/
 
 ---
 
+## Feature Implementation: Agent Team Strategy
+
+When implementing a new feature, spawn a **team of parallel agents** (via the Task tool), each responsible for one layer. Every agent writes its own tests. A final Code Review agent validates everything.
+
+### Agent Roles
+
+| Agent | Scope | Responsibilities |
+|-------|-------|-----------------|
+| **Domain** | `domain/` | Models, repository interfaces, use cases, domain exceptions. Writes unit tests for all use cases. Must produce **pure Kotlin only**. |
+| **Data** | `data/` | Repository implementations, DTOs, mappers, API services, local data sources. Writes unit tests for repositories and mappers. |
+| **Presentation** | `presentation/` | ViewModel, UiState/UiEvent sealed interfaces, screen composables, reusable components. Writes ViewModel tests. |
+| **Code Review** | All layers | Runs AFTER the other agents finish. Validates compliance with ALL rules in this CLAUDE.md. |
+
+### Execution Flow
+
+```
+1. Analyze the feature requirements
+2. Define the contracts (domain models + repository interfaces) FIRST
+3. Launch agents in parallel:
+   ┌─────────────────────────────────────────────┐
+   │  [Domain Agent]  [Data Agent]  [Presentation Agent]  │
+   │   models          DTOs          ViewModel             │
+   │   interfaces      impls         UiState/UiEvent       │
+   │   use cases       mappers       composables           │
+   │   + tests         + tests       + tests               │
+   └─────────────────────────────────────────────┘
+4. After all agents complete:
+   ┌─────────────────────────────────────────────┐
+   │              [Code Review Agent]                      │
+   │  - Domain purity check (no forbidden imports)         │
+   │  - SOLID compliance                                   │
+   │  - Concurrency safety                                 │
+   │  - M3 / theme compliance                              │
+   │  - Test coverage verification                         │
+   │  - Stateless composable check                         │
+   └─────────────────────────────────────────────┘
+5. Fix any issues found by Code Review
+```
+
+### Agent Rules
+
+- **Domain agent runs first** (or defines contracts first) since other layers depend on domain interfaces.
+- Data and Presentation agents can run **in parallel** once domain contracts exist.
+- Each agent **must write tests** for the code it produces. No code without tests.
+- Code Review agent uses the Checklist (below) as its validation rubric.
+- If Code Review finds violations, fix them before considering the feature complete.
+
+---
+
 ## Checklist Before Writing Code
 
 - [ ] Does this code belong in the correct layer?
